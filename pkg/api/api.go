@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"stugi/gonews/pkg/storage"
 
@@ -21,6 +22,7 @@ func New(db storage.Interface) *API {
 	}
 	api.router = mux.NewRouter()
 	api.endpoints()
+	fmt.Print("Here we go API!")
 	return &api
 }
 

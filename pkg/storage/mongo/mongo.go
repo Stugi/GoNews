@@ -2,6 +2,7 @@ package mongo
 
 import (
 	"context"
+	"log"
 	"stugi/gonews/pkg/storage"
 	"time"
 
@@ -20,21 +21,24 @@ type Storage struct {
 }
 
 func New(connection string) (*Storage, error) {
-	client, err := mongo.Connect(options.Client().ApplyURI(connection))
+	clientOptions := options.Client().ApplyURI(connection)
+	clientOptions.SetConnectTimeout(15 * time.Second)
 
-	defer func() {
-		if err = client.Disconnect(context.Background()); err != nil {
-			panic(err)
-		}
-	}()
+	client, err := mongo.Connect(clientOptions)
 
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
 
-	return &Storage{
-		c: client,
-	}, nil
+	// Ping the server to verify the connection
+	err = client.Ping(context.TODO(), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("Connected to MongoDB!")
+
+	return &Storage{c: client}, nil
 }
 
 func (s *Storage) AddPost(post storage.Post) error {
@@ -54,11 +58,12 @@ func (s *Storage) AddPost(post storage.Post) error {
 func (s *Storage) Posts() ([]storage.Post, error) {
 	collection := s.c.Database(databaseName).Collection(collectionName)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	cursor, err := collection.Find(ctx, bson.M{})
 	if err != nil {
+		log.Fatal(err)
 		return nil, err
 	}
 	defer cursor.Close(context.Background())
