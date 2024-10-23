@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 	"stugi/gonews/pkg/storage"
 
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -16,11 +17,13 @@ type Storage struct {
 func New(connection string) (*Storage, error) {
 	db, err := pgxpool.Connect(context.Background(), connection)
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 	s := Storage{
 		db: db,
 	}
+	fmt.Println("Connected to Postgres!")
 	return &s, nil
 }
 
@@ -56,19 +59,28 @@ func (s *Storage) Posts() ([]storage.Post, error) {
 }
 
 func (s *Storage) AddPost(post storage.Post) error {
-	err := s.db.QueryRow(context.Background(), `
+	_, err := s.db.Exec(context.Background(), `
 		INSERT INTO posts (author_id, title, content, created_at, published_at)
 		VALUES ($1, $2, $3, $4, $5)`,
-		post.AuthorID, post.Title, post.Content, post.CreatedAt, post.PublishedAt).Scan(&post.ID)
+		post.AuthorID, post.Title, post.Content, post.CreatedAt, post.PublishedAt)
 
+	if err != nil {
+		fmt.Println(err)
+	}
 	return err
 }
 func (s *Storage) UpdatePost(post storage.Post) error {
-	err := s.db.QueryRow(context.Background(), `
+	query := `
 		UPDATE posts
 		SET author_id = $1, title = $2, content = $3, created_at = $4, published_at = $5
-		WHERE id = $6`,
-		post.AuthorID, post.Title, post.Content, post.CreatedAt, post.PublishedAt, post.ID).Scan(&post.ID)
+		WHERE id = $6`
+	// TODO: How update only field changed
+	_, err := s.db.Exec(context.Background(), query,
+		post.AuthorID, post.Title, post.Content, post.CreatedAt, post.PublishedAt, post.ID)
+
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	return err
 }
@@ -79,4 +91,42 @@ func (s *Storage) DeletePost(ID int) error {
 		ID).Scan(&ID)
 
 	return err
+}
+
+type Author struct {
+	ID   int
+	Name string
+}
+
+func (s *Storage) AddAuthor(author Author) error {
+	_, err := s.db.Exec(context.Background(), `
+		INSERT INTO authors (name)
+		VALUES ($1)`,
+		author.Name)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return err
+}
+
+func (s *Storage) Authors() ([]Author, error) {
+	rows, err := s.db.Query(context.Background(), `SELECT id, name FROM authors`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var authors []Author
+	for rows.Next() {
+		var a Author
+		err = rows.Scan(&a.ID, &a.Name)
+		if err != nil {
+			return nil, err
+		}
+		authors = append(authors, a)
+	}
+
+	fmt.Println(authors)
+	return authors, nil
 }

@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	port        = ":8080"
-	postgresUrl = "postgres://postgres:postgres@server.domain/posts"
+	port = ":8061"
+	// psql -U postgres -d gonews.
+	postgresUrl = "postgres://postgres:postgres@localhost:5432/gonews?sslmode=disable"
 	mongoUrl    = "mongodb://localhost:27017/"
 )
 
@@ -43,7 +44,13 @@ func main() {
 	_, _, _ = db1, db2, db3
 
 	// Инициализируем хранилище сервера конкретной БД.
-	srv.db = db3
+	srv.db = db2
+
+	srv.db.UpdatePost(storage.Post{
+		ID:       24,
+		AuthorID: 7,
+		Content:  "Content NEW NEW",
+	})
 
 	// Создаём объект API и регистрируем обработчики.
 	srv.api = api.New(srv.db)
